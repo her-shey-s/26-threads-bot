@@ -16,6 +16,7 @@ AT = datetime(2026, 10, 13, 0, tzinfo=timezone.utc)
 
 def post(post_id="p1", **changes):
     return {"type": "post", "postId": post_id, "text": "해야 할 일을 줄이는 것도 계획의 일부다.",
+            "username": "fictional-author",
             "date": (AT - timedelta(hours=2)).isoformat(), "media": [],
             "likeCount": 500, "replyCount": 20, "repostCount": 5, "quoteCount": 2, **changes}
 
@@ -118,6 +119,8 @@ class WritingTests(unittest.TestCase):
         self.assertIn("> " + post()["text"], text)
         self.assertIn("합성 예시", text)
         self.assertIn("korean_language_proxy", text)
+        self.assertIn("게시자 아이디: fictional-author", text)
+        self.assertIn(post()["date"], text)
         self.assertIsNone(json.loads(self.reference.with_suffix(".json").read_text())["selected"][0]["url"])
 
     def test_prompt_only_mode_never_calls_api(self):

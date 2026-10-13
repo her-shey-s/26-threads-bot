@@ -10,6 +10,7 @@
 
 - `collect`: JSON 정규화, 최신 관측 중복 제거, 길이·언어·미디어·기간·지역·지표 필터
 - 총 반응과 글자 수를 함께 반영한 실험용 순위, Markdown/JSON 저장, 제외 사유 집계
+- 원문 URL·게시자 아이디·게시 시각을 JSON과 Markdown에 표시 (미제공 값은 명시)
 - `write`: Markdown 기반 Codex 작성 요청 및 Codex JSON 초안 검증·저장
 - 길이·원문 완전 복사·참고 ID·링크·중복 검사, 편집상 예상 후킹 점수순 정렬
 - 선택적 한국 Google Trends RSS + Apify 수집 및 AI Responses API 연결 코드
