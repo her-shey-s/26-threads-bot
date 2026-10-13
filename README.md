@@ -1,8 +1,24 @@
-# Threads 트렌드·레퍼런스 수집기
+# Threads 트렌드 수집·글쓰기 도구
 
-첨부 계획서를 바탕으로 만든 Python + SQLite MVP의 초기 구조입니다.
-현재는 **가상 데이터로 수집 → 중복 제거 → 특징 추출 → 인기/시간 보정 TOP 10 → SQLite·JSON·CSV 저장**을 실행합니다.
-실제 Threads 검색, 외부 트렌드 수집, 자동 게시, Telegram 전송은 구현하지 않았습니다.
+우선 흐름은 **수집 결과 JSON → 짧은 한국어 글 선별 → Markdown → Codex 글쓰기 → 초안 Markdown**입니다.
+사용자가 선택한 기본 방식은 파일 가져오기와 Codex 글쓰기이며 Meta 앱이나 AI API 키 없이 쓸 수 있습니다.
+실제 수집 파일의 품질은 아직 검증하지 않았습니다. 자동 발행은 후속 범위입니다.
+
+기본 조건: 최근 48시간, 공백 포함 200자 이하, 미디어 없는 한국어 글, 가중 반응 100 이상.
+지역 필드가 없으면 **한국어권 대리지표**로 표시합니다. 한국 작성 위치를 확인한 것은 아닙니다.
+주제를 제한하지 않으며 총 반응과 글 길이를 함께 평가합니다. 전체 Threads 순위는 보장하지 않습니다.
+
+네트워크·설치·키 없이 실행하는 예시:
+
+```bash
+PYTHONPATH=src python3 -m threads_bot collect --source demo
+PYTHONPATH=src python3 -m threads_bot write --reference reports/reference-demo/2026-10-13.md
+```
+
+두 번째 명령은 Codex용 작성 요청을 저장합니다. Codex가 작성한 JSON은 `write --drafts-input`으로 검증·저장합니다.
+실제 파일 가져오기와 전체 사용법은 [수집·글쓰기 안내](docs/reference-workflow.md)를 참고하세요.
+선택적 Apify 수집 및 AI API 연결 코드도 있으며 실연결은 미검증입니다.
+기존 Python·SQLite 샘플 흐름은 아래 명령으로 계속 사용할 수 있습니다.
 
 ## 실행
 
@@ -66,7 +82,7 @@ docs/            # 설계 범위와 실제 API 연동 준비
 빈 수집 결과는 실패로 기록하며 기존 순위를 삭제하지 않습니다.
 제휴 여부는 `unknown`, 댓글 링크는 `not_collected`로 표시합니다.
 
-## 다음 구현
+## 기존 SQLite 흐름의 후속 구현
 
 1. [API 확인 항목](docs/phase-0.md)에 실제 승인 권한과 제공 필드를 기록합니다.
 2. 허용된 외부 트렌드 소스와 Threads 검색 수집기를 데이터 계약에 맞춰 구현합니다.

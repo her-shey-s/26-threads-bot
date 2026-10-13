@@ -8,6 +8,9 @@ from .sources import DemoPostSource, DemoTrendSource
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] in {"collect", "write"}:
+        from .workflow_cli import main as workflow_main
+        return workflow_main(sys.argv[1:])
     parser = argparse.ArgumentParser(description="Threads 일일 랭킹 MVP (현재 샘플 데이터 전용)")
     parser.add_argument("--source", choices=["demo"], required=True)
     parser.add_argument("--database", type=Path, default=Path("data/demo.sqlite3"))
