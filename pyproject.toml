@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "threads-trend-bot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Threads trend collection and daily reference ranking scaffold"
 requires-python = ">=3.11"
 dependencies = []
@@ -14,3 +14,6 @@ threads-bot = "threads_bot.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+threads_bot = ["reference_demo.json"]

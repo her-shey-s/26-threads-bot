@@ -1,0 +1,11 @@
+[
+  {"type":"post","postId":"demo-short-1","text":"계획을 잘 세우는 것보다, 못 지킨 계획을 빨리 고치는 게 더 어렵다.","username":"fictional-a","date":"2026-10-13T06:00:00+09:00","media":[],"likeCount":900,"replyCount":80,"repostCount":40,"quoteCount":15},
+  {"type":"post","postId":"demo-short-2","text":"물건은 버리면서 정리하는데, 일정은 왜 계속 추가만 할까.","username":"fictional-b","date":"2026-10-12T21:00:00+09:00","mediaType":"TEXT_POST","likeCount":1200,"replyCount":90,"repostCount":50,"quoteCount":20},
+  {"type":"post","postId":"demo-short-3","text":"편한 사람은 말을 잘하는 사람보다, 말을 끝까지 듣는 사람인 것 같다.","username":"fictional-c","date":"2026-10-12T18:00:00+09:00","media":[],"likeCount":700,"replyCount":60,"repostCount":20,"quoteCount":10},
+  {"type":"post","postId":"demo-image","text":"오늘 발견한 멋진 장면입니다.","date":"2026-10-13T07:00:00+09:00","media":[{"type":"image"}],"likeCount":5000,"replyCount":300,"repostCount":100,"quoteCount":40},
+  {"type":"post","postId":"demo-unknown-media","text":"이미지가 있는지 확인할 수 없는 글입니다.","date":"2026-10-13T07:00:00+09:00","likeCount":2000,"replyCount":30,"repostCount":10,"quoteCount":5},
+  {"type":"post","postId":"demo-missing-metric","text":"인용 반응 수가 제공되지 않은 글입니다.","date":"2026-10-13T07:00:00+09:00","media":[],"likeCount":2000,"replyCount":30,"repostCount":10},
+  {"type":"post","postId":"demo-old","text":"기간 밖에 있는 오래된 글입니다.","date":"2026-10-01T07:00:00+09:00","media":[],"likeCount":9000,"replyCount":100,"repostCount":100,"quoteCount":10},
+  {"type":"post","postId":"demo-foreign","text":"A short English post with many reactions.","date":"2026-10-13T07:00:00+09:00","media":[],"likeCount":8000,"replyCount":100,"repostCount":100,"quoteCount":10},
+  {"type":"post","postId":"demo-low","text":"아직 반응이 거의 없는 글입니다.","date":"2026-10-13T07:00:00+09:00","media":[],"likeCount":2,"replyCount":0,"repostCount":0,"quoteCount":0}
+]
