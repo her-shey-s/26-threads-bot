@@ -44,7 +44,12 @@ src/threads_bot/
   storage.py     # SQLite 스키마와 저장
   pipeline.py    # 일일 실행, 실행 이력, JSON/CSV 출력
   cli.py         # 명시적 --source demo 실행 진입점
-tests/           # 랭킹·누락값·재실행·실패·전체 흐름 검증
+  drafts.py      # 게시 대기열 파일 → Draft
+  publisher.py   # DryRunPublisher(기본) / ThreadsPublisher(실게시, 미검증)
+  publish_loop.py  # 1회 게시 실행: 대상 선택·안전장치·이력 기록
+  publish_cli.py # python -m threads_bot.publish_cli 진입점
+content/queue/   # 게시 대기열 (live 이력은 content/history.jsonl)
+tests/           # 랭킹·누락값·재실행·실패·전체 흐름·게시 루프 검증
 docs/            # 설계 범위와 실제 API 연동 준비
 .github/workflows/
   ci.yml         # push/PR 테스트
