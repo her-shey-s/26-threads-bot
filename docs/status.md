@@ -17,13 +17,15 @@
 
 사용자 결정(2026-11): 게시 자동화를 먼저 만들고, AI 생성과 커스터마이징을 차례로 얹습니다. 주제는 사용자가 나중에 지정합니다.
 
-1. Threads 자동 게시 루프 — 코드·dry-run 완료, 실게시 미검증
+1. Threads 자동 게시 루프 — 실게시 1회 성공 (2026-11-18), 예약 실행은 아직 꺼짐
    - 완료: JSON 파일 대기열, Publisher(dry-run 기본 / Threads API), 안전장치(일일 상한·간격·길이·중복·대가성 문구·긴급 정지·한도),
      게시 이력(JSONL), 오류 분류(retry / failed / uncertain / auth_error), `publish_cli`, 수동 실행 워크플로 `publish.yml`
    - 로컬 검증: 테스트 32개 통과(기존 12 + 게시 20), 예시 대기열 dry-run으로 본문·댓글 게시 흐름 확인
-   - 미검증: 실제 Threads API 호출 전부(엔드포인트·응답 형태·한도 응답), GitHub Actions 원격 실행·이력 커밋
-   - 사용자 준비: Meta 앱 생성·권한·테스터 등록·토큰 발급 완료, `/me` 조회 성공(2026-11). 남음: 토큰 수명 확인, GitHub Secrets 저장, 첫 live 게시
-   - 남은 구현: 장기 토큰 갱신(저장 위치 결정 필요), 실패 알림
+   - 원격 검증: GitHub Actions 수동 실행 dry-run 성공 → live로 `test-001` 게시 성공(사용자가 Threads에서 확인),
+     `content/history.jsonl` 이력이 워크플로에 의해 main에 자동 커밋됨
+   - 미검증: 댓글(`reply_to_id`) 게시, `threads_publishing_limit` 응답 형태, 길이 한도 경계, 토큰 수명·갱신
+   - 사용자 준비 완료: Meta 앱·권한·테스터·토큰, GitHub Secrets. 남음: 토큰 수명 확인
+   - 남은 작업: 댓글 링크 게시 1회 확인, 예약(cron) 켜기, 장기 토큰 갱신(저장 위치 결정 필요), 실패 알림, 액션 버전 업데이트(Node 20 경고)
 2. AI 글 자동 생성 모듈 (대기열에 초안 추가)
 3. 주제·말투 커스터마이징
 4. 트렌드 수집기 실데이터 연동 (`phase-0.md` 미확인 항목 확인부터)
