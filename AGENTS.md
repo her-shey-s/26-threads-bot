@@ -4,7 +4,9 @@
 
 Threads 트렌드 후보를 수집·분석하고 일일 인기 TOP 10과 시간 보정 TOP 10을 저장합니다.
 현재는 합성 데이터 기반 Python·SQLite MVP이며 실제 API 연동은 아직 없습니다.
-AI 글 생성과 자동 게시는 현재 개발 범위 밖입니다.
+개발 순서는 ① Threads 자동 게시 루프 → ② AI 글 자동 생성 → ③ 주제·말투 커스터마이징입니다.
+현재 착수 대상은 ①이며, 계획과 사용법은 `README.md`의 "Threads 자동 게시 루프"에 있습니다.
+실게시는 dry-run 검증과 사용자의 명시적 실행 설정 없이 켜지 마세요.
 
 작업 전 `README.md`, `docs/status.md`, `docs/architecture.md`를 읽고,
 실제 데이터 연동 작업은 `docs/phase-0.md`의 미확인 항목부터 확인하세요.

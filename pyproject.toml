@@ -11,6 +11,7 @@ dependencies = []
 
 [project.scripts]
 threads-bot = "threads_bot.cli:main"
+threads-publish = "threads_bot.publish_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
