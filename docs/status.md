@@ -22,7 +22,7 @@
      게시 이력(JSONL), 오류 분류(retry / failed / uncertain / auth_error), `publish_cli`, 수동 실행 워크플로 `publish.yml`
    - 로컬 검증: 테스트 32개 통과(기존 12 + 게시 20), 예시 대기열 dry-run으로 본문·댓글 게시 흐름 확인
    - 미검증: 실제 Threads API 호출 전부(엔드포인트·응답 형태·한도 응답), GitHub Actions 원격 실행·이력 커밋
-   - 사용자 준비: Meta 앱 생성, 게시 권한, 테스터 등록, 장기 토큰 발급, GitHub Secrets 저장
+   - 사용자 준비: Meta 앱 생성·권한·테스터 등록·토큰 발급 완료, `/me` 조회 성공(2026-11). 남음: 토큰 수명 확인, GitHub Secrets 저장, 첫 live 게시
    - 남은 구현: 장기 토큰 갱신(저장 위치 결정 필요), 실패 알림
 2. AI 글 자동 생성 모듈 (대기열에 초안 추가)
 3. 주제·말투 커스터마이징
