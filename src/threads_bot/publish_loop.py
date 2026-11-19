@@ -5,9 +5,11 @@ from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 import json
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .drafts import Draft, load_queue
 from .publisher import AuthError, PermanentError, PublishError, Publisher, TransientError
+from .schedule import DailySlots
 
 # Unverified API limit (third-party guides say 500); confirm in Phase 0.
 MAX_TEXT_LENGTH = 500
@@ -18,10 +20,11 @@ TERMINAL_STATUSES = {"published", "rejected", "failed", "uncertain"}
 
 @dataclass(frozen=True)
 class Limits:
-    max_per_day: int = 3
+    max_per_day: int = 3  # per local calendar day in `timezone`
     min_interval: timedelta = timedelta(minutes=120)
     max_attempts: int = 3
     quota_reserve: int = 10
+    timezone: str = "Asia/Seoul"
 
 
 @dataclass
@@ -76,6 +79,7 @@ def run_once(
     at: datetime,
     limits: Limits = Limits(),
     paused: bool = False,
+    slots: DailySlots | None = None,
 ) -> Outcome:
     if at.utcoffset() is None:
         raise ValueError("at must include a timezone")
@@ -84,6 +88,20 @@ def run_once(
         return Outcome("paused", detail="THREADS_PUBLISH_PAUSED is set", invalid_files=invalid)
 
     history = read_history(history_path)
+    published = [r for r in history if r["status"] == "published"]
+    times = [datetime.fromisoformat(r["at"]) for r in published]
+    zone = ZoneInfo(limits.timezone)
+    today = at.astimezone(zone).date()
+    published_today = sum(1 for t in times if t.astimezone(zone).date() == today)
+
+    if slots is not None:
+        if not slots.in_window(at):
+            return Outcome("waiting", detail="outside_window", invalid_files=invalid)
+        if published_today >= slots.passed(at):
+            upcoming = [s for s in slots.slots_for(slots.local_day(at)) if s > at]
+            nxt = upcoming[0].strftime("%H:%M") if upcoming else "tomorrow"
+            return Outcome("waiting", detail=f"next_slot {nxt}", invalid_files=invalid)
+
     done = {r["draft_id"] for r in history if r["status"] in TERMINAL_STATUSES}
     attempts: dict[str, int] = {}
     for record in history:
@@ -95,9 +113,7 @@ def run_once(
         return Outcome("idle", detail="no due drafts", invalid_files=invalid)
     draft = due[0]
 
-    published = [r for r in history if r["status"] == "published"]
-    times = [datetime.fromisoformat(r["at"]) for r in published]
-    if sum(1 for t in times if t > at - timedelta(hours=24)) >= limits.max_per_day:
+    if published_today >= limits.max_per_day:
         return Outcome("waiting", draft.id, "daily_limit", invalid_files=invalid)
     if times and at - max(times) < limits.min_interval:
         return Outcome("waiting", draft.id, "min_interval", invalid_files=invalid)

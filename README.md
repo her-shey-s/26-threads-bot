@@ -3,7 +3,7 @@
 첨부 계획서를 바탕으로 만든 Python + SQLite MVP의 초기 구조입니다.
 현재는 **가상 데이터로 수집 → 중복 제거 → 특징 추출 → 인기/시간 보정 TOP 10 → SQLite·JSON·CSV 저장**을 실행합니다.
 실제 Threads 검색, 외부 트렌드 수집, 자동 게시, Telegram 전송은 구현하지 않았습니다.
-**Threads 자동 게시 루프**는 dry-run까지 구현했고 실제 Threads 게시는 아직 검증하지 않았습니다. 계획은 아래 [로드맵](#로드맵)을 참고하세요.
+**Threads 자동 게시 루프**는 GitHub Actions 수동 실행으로 실게시 1회를 확인했습니다. 예약 실행은 하루 3번 무작위 슬롯으로 설정했고, 원격 예약 실행은 아직 확인 전입니다. 계획은 아래 [로드맵](#로드맵)을 참고하세요.
 
 ## 실행
 
@@ -48,13 +48,14 @@ src/threads_bot/
   publisher.py   # DryRunPublisher(기본) / ThreadsPublisher(실게시, 미검증)
   publish_loop.py  # 1회 게시 실행: 대상 선택·안전장치·이력 기록
   publish_cli.py # python -m threads_bot.publish_cli 진입점
+  schedule.py    # 하루 무작위 게시 슬롯 계산
 content/queue/   # 게시 대기열 (live 이력은 content/history.jsonl)
 tests/           # 랭킹·누락값·재실행·실패·전체 흐름·게시 루프 검증
 docs/            # 설계 범위와 실제 API 연동 준비
 .github/workflows/
   ci.yml         # push/PR 테스트
   demo.yml       # 수동 샘플 실행 및 7일 보관 아티팩트
-  publish.yml    # Threads 게시 (수동 실행만, 예약은 주석 처리)
+  publish.yml    # Threads 게시 (30분마다 깨어나 무작위 슬롯에 게시 + 수동 실행)
 ```
 
 ## 점수와 저장 규칙
@@ -77,7 +78,7 @@ docs/            # 설계 범위와 실제 API 연동 준비
 
 사용자가 정한 우선순위입니다. 주제(니치)는 나중에 사용자가 지정합니다.
 
-1. **Threads 자동 게시 루프** ← 진행 중: 코드·dry-run 완료, 실게시 미검증
+1. **Threads 자동 게시 루프** ← 진행 중: 수동 실게시 성공, 무작위 예약 구현, 토큰 갱신 남음
 2. AI 글 자동 생성 모듈 (게시 대기열에 초안을 넣는 역할)
 3. 주제·말투 커스터마이징 (프롬프트·스타일 설정을 생성 모듈에 입힘)
 4. 기존 트렌드 수집기의 실데이터 연동 ([API 확인 항목](docs/phase-0.md)) — 생성 모듈의 주제 입력으로 활용
@@ -118,7 +119,7 @@ docs/            # 설계 범위와 실제 API 연동 준비
 | 본문 링크 개수 제한·링크 미리보기 파라미터 | — | 미확인 |
 | API 자체 예약 게시 기능 | — | 미확인 (없다고 가정하고 스케줄러를 직접 둠) |
 
-### C. 구현 (dry-run까지 완료, 실게시 미검증)
+### C. 구현 (텍스트 실게시 확인, 댓글·한도 조회는 미검증)
 
 사용법:
 
@@ -151,14 +152,24 @@ docs/            # 설계 범위와 실제 API 연동 준비
 | `uncertain` | 게시 단계에서 응답을 못 받음 (올라갔을 수도 있음) | **자동 재시도 안 함, 사람이 확인** |
 | `auth_error` | 토큰 만료·권한 부족 (종료 코드 3) | 이력에 남기지 않아 토큰 수정 후 재게시 |
 
-기본 안전값: 하루(24시간 이동 구간) 3개, 게시 간 120분, 500자. `--max-per-day`, `--min-interval-minutes`로 변경합니다.
+기본 안전값: 하루(한국 시간 날짜 기준) 3개, 게시 간 120분, 500자. `--max-per-day`, `--min-interval-minutes`, `--timezone`으로 변경합니다.
 환경 변수 `THREADS_PUBLISH_PAUSED=true`이면 아무것도 게시하지 않습니다.
 
-GitHub Actions `Threads publish` 워크플로(`.github/workflows/publish.yml`)는 현재 **수동 실행만** 켜져 있습니다.
+GitHub Actions `Threads publish` 워크플로(`.github/workflows/publish.yml`):
 
-- 수동 실행에서 `mode`를 `dry-run` 또는 `live`로 고릅니다. live 실행 후 `content/history.jsonl`을 저장소에 커밋합니다.
-- 예약 실행은 파일의 `schedule` 주석을 풀어 켭니다. 예약 실행의 모드는 저장소 변수 `THREADS_SCHEDULED_MODE`(`live`일 때만 실게시)로 정합니다.
+- **예약 실행**: 하루 3번, 오전 9시~오후 10시(KST) 사이 무작위 시각, 게시 간 2시간 이상.
+  - cron은 무작위 시각을 지원하지 않으므로 09:13~21:43 KST에 30분마다 깨어나기만 합니다.
+  - 코드(`schedule.py`)가 날짜마다 09:00~21:30 사이의 슬롯 3개를 서로 2시간 이상 떨어지게 뽑습니다.
+    같은 날의 모든 실행이 같은 슬롯을 계산하므로 별도 저장이 필요 없습니다.
+  - 슬롯이 지났고 오늘 게시 수가 지난 슬롯 수보다 적을 때만 게시합니다. 실제 게시 시각은 슬롯 후 최대 약 30분이고, GitHub 지연이 더해질 수 있습니다.
+  - 22:00 이후에는 게시하지 않습니다. GitHub 지연으로 놓친 슬롯은 그날 건너뜁니다.
+  - 오늘 슬롯 확인: `.venv/bin/python -m threads_bot.publish_cli check --daily-slots 3`
+  - 선택: 저장소 Secret `THREADS_SCHEDULE_SEED`에 아무 문자열이나 넣으면 공개 코드로 슬롯 시각을 미리 계산할 수 없게 됩니다.
+- **예약 실행 모드**: 저장소 변수 `THREADS_SCHEDULED_MODE`가 `live`일 때만 실게시하고, 없으면 dry-run입니다.
+- **수동 실행**: `mode`로 `dry-run`/`live`를 고릅니다. 슬롯을 무시하고 예정 시각이 지난 글을 바로 처리합니다.
+- live 실행 후 `content/history.jsonl`을 저장소에 커밋합니다. push 충돌 시 rebase 후 최대 4번 재시도합니다.
 - 긴급 정지는 저장소 변수 `THREADS_PUBLISH_PAUSED=true`로 합니다.
+- **대기열이 비어 있으면 아무것도 올리지 않습니다.** AI 생성 모듈 전까지는 `content/queue/`에 글을 직접 채워야 합니다.
 
 설계 흐름:
 
@@ -193,7 +204,7 @@ GitHub Actions cron (예: 하루 N회)
 2. 로컬에서 실제 토큰으로 **글 1개 수동 게시** → 응답 필드와 오류 형식을 `phase-0.md`에 기록
 3. 댓글(링크) 게시, 한도 조회, 토큰 갱신을 각각 1회 실호출로 확인
 4. GitHub Actions 수동 실행(`workflow_dispatch`)으로 1회 게시
-5. 확인이 끝난 뒤에만 cron 예약을 켭니다. GitHub Actions cron은 몇 분에서 수십 분 늦게 실행될 수 있습니다.
+5. 확인이 끝난 뒤에만 cron 예약을 켭니다(2026-11-19 켬, 실게시는 `THREADS_SCHEDULED_MODE=live` 설정 후). GitHub Actions cron은 몇 분에서 수십 분 늦게 실행될 수 있습니다.
 
 클라우드 스케줄러가 맞지 않으면, 같은 CLI를 켜둔 PC의 작업 스케줄러(cron/작업 스케줄러)로 실행할 수 있습니다.
 

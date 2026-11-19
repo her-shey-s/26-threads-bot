@@ -1,16 +1,19 @@
 name: Threads publish
 
-# Manual only. Enable the schedule after a successful live run (README "D. 검증 순서").
+# Scheduled runs wake every 30 minutes between 09:13 and 21:43 KST. The Python code
+# picks 3 random slots per day (09:00-21:30 KST, at least 2 hours apart) and posts
+# only when a slot has passed. Scheduled runs post for real only when the repository
+# variable THREADS_SCHEDULED_MODE is "live"; otherwise they dry-run.
 on:
+  schedule:
+    - cron: '13,43 0-12 * * *'  # UTC = 09:13-21:43 KST. GitHub may start runs late.
   workflow_dispatch:
     inputs:
       mode:
-        description: dry-run makes no API calls; live posts to Threads
+        description: dry-run makes no API calls; live posts to Threads (manual runs ignore slots)
         type: choice
         options: [dry-run, live]
         default: dry-run
-  # schedule:
-  #   - cron: '7 0,4,11 * * *'  # UTC; 09:07, 13:07, 20:07 KST. Actions may start late.
 
 permissions:
   contents: write  # live runs commit content/history.jsonl
@@ -24,19 +27,23 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MODE: ${{ inputs.mode || vars.THREADS_SCHEDULED_MODE || 'dry-run' }}
+      SLOTS: ${{ github.event_name == 'schedule' && '3' || '0' }}
       THREADS_PUBLISH_PAUSED: ${{ vars.THREADS_PUBLISH_PAUSED }}
+      THREADS_SCHEDULE_SEED: ${{ secrets.THREADS_SCHEDULE_SEED }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}  # latest branch head, so history committed by a previous run is seen
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: python -m pip install -e .
-      - run: python -m threads_bot.publish_cli check --mode "$MODE"
+      - run: python -m threads_bot.publish_cli check --mode "$MODE" --daily-slots "$SLOTS"
       - name: Publish one due draft
         env:
           THREADS_USER_ID: ${{ env.MODE == 'live' && secrets.THREADS_USER_ID || '' }}
           THREADS_ACCESS_TOKEN: ${{ env.MODE == 'live' && secrets.THREADS_ACCESS_TOKEN || '' }}
-        run: python -m threads_bot.publish_cli run --mode "$MODE"
+        run: python -m threads_bot.publish_cli run --mode "$MODE" --daily-slots "$SLOTS"
       - name: Commit publish history
         if: always() && env.MODE == 'live'
         run: |
@@ -45,4 +52,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git commit -m "Record Threads publish history"
-          git push
+          for attempt in 1 2 3 4; do
+            git push && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase
+          done
+          echo "::error::Could not push publish history; the next run may repost. Check content/history.jsonl."
+          exit 1
