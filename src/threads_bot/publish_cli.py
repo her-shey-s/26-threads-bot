@@ -5,7 +5,7 @@ THREADS_USER_ID / THREADS_ACCESS_TOKEN environment variables.
 """
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 import os
 from pathlib import Path
 import sys
@@ -13,6 +13,7 @@ import sys
 from .drafts import load_queue
 from .publish_loop import Limits, read_history, run_once, TERMINAL_STATUSES
 from .publisher import AuthError, DryRunPublisher, ThreadsPublisher
+from .schedule import DailySlots
 
 DEFAULT_HISTORY = {"dry-run": Path("data/dry-run-history.jsonl"), "live": Path("content/history.jsonl")}
 EXIT_CODES = {
@@ -35,9 +36,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-per-day", type=int, default=3)
     parser.add_argument("--min-interval-minutes", type=int, default=120)
     parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--timezone", default="Asia/Seoul", help="일일 상한·예약 슬롯 기준 시간대")
+    parser.add_argument("--daily-slots", type=int, default=0,
+                        help="하루 무작위 게시 슬롯 수 (0 = 슬롯 없이 예정 시각만 확인, 수동 실행용)")
+    parser.add_argument("--window", default="09:00-22:00", help="슬롯을 뽑을 현지 시간 범위")
+    parser.add_argument("--slot-gap-minutes", type=int, default=120)
     args = parser.parse_args(argv)
 
     history = args.history or DEFAULT_HISTORY[args.mode]
+    try:
+        slots = _slots(args)
+    except ValueError as error:
+        print(f"예약 슬롯 설정 오류: {error}", file=sys.stderr)
+        return 2
     try:
         at = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
         if at.utcoffset() is None:
@@ -47,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.command == "check":
-        return _check(args.queue, history, at)
+        return _check(args.queue, history, at, slots)
 
     if args.mode == "live":
         try:
@@ -64,10 +75,12 @@ def main(argv: list[str] | None = None) -> int:
         max_per_day=args.max_per_day,
         min_interval=timedelta(minutes=args.min_interval_minutes),
         max_attempts=args.max_attempts,
+        timezone=args.timezone,
     )
     outcome = run_once(
         args.queue, history, publisher, at, limits,
         paused=_truthy(os.environ.get("THREADS_PUBLISH_PAUSED")),
+        slots=slots,
     )
     label = "[LIVE]" if args.mode == "live" else "[DRY-RUN]"
     for draft_id, problem in outcome.invalid_files.items():
@@ -88,7 +101,24 @@ def main(argv: list[str] | None = None) -> int:
     return EXIT_CODES[outcome.status]
 
 
-def _check(queue: Path, history_path: Path, at: datetime) -> int:
+def _slots(args: argparse.Namespace) -> DailySlots | None:
+    if args.daily_slots <= 0:
+        return None
+    try:
+        start, end = (time.fromisoformat(part) for part in args.window.split("-"))
+    except ValueError as error:
+        raise ValueError("--window는 HH:MM-HH:MM 형식이어야 합니다") from error
+    return DailySlots(
+        count=args.daily_slots, window_start=start, window_end=end,
+        min_gap=timedelta(minutes=args.slot_gap_minutes), timezone=args.timezone,
+        seed=os.environ.get("THREADS_SCHEDULE_SEED", ""),
+    )
+
+
+def _check(queue: Path, history_path: Path, at: datetime, slots: DailySlots | None = None) -> int:
+    if slots is not None:
+        today = slots.slots_for(slots.local_day(at))
+        print("오늘 게시 슬롯: " + ", ".join(s.strftime("%H:%M") for s in today) + f" ({slots.timezone})")
     drafts, invalid = load_queue(queue)
     history = read_history(history_path)
     status = {}

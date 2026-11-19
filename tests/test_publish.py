@@ -249,3 +249,61 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SlotTests(unittest.TestCase):
+    def setUp(self):
+        from threads_bot.schedule import DailySlots
+        self.slots = DailySlots()
+
+    def test_slots_respect_window_gap_and_are_stable(self):
+        from datetime import date
+        for offset in range(400):
+            day = date(2026, 1, 1) + timedelta(days=offset)
+            slots = self.slots.slots_for(day)
+            self.assertEqual(len(slots), 3)
+            self.assertEqual(slots, self.slots.slots_for(day))
+            for slot in slots:
+                local = slot.time()
+                self.assertGreaterEqual((local.hour, local.minute), (9, 0))
+                self.assertLessEqual((local.hour, local.minute), (21, 30))
+            for a, b in zip(slots, slots[1:]):
+                self.assertGreaterEqual(b - a, timedelta(hours=2))
+        days = [self.slots.slots_for(date(2026, 1, 1) + timedelta(days=i))[0] for i in range(10)]
+        self.assertGreater(len({d.time() for d in days}), 1)
+
+    def test_window_too_short_is_rejected(self):
+        from datetime import time
+        from threads_bot.schedule import DailySlots
+        with self.assertRaises(ValueError):
+            DailySlots(window_start=time(9), window_end=time(12))
+
+    def test_loop_publishes_once_per_passed_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue"
+            queue.mkdir()
+            for i in range(5):
+                (queue / f"d{i}.json").write_text(json.dumps(
+                    {"text": f"서로 다른 글 번호 {i} " + "가나다라마바사"[i] * 10, "scheduled_at": "2026-11-01T00:00:00+09:00"},
+                    ensure_ascii=False))
+            history = Path(tmp) / "h.jsonl"
+            day = datetime(2026, 11, 20, tzinfo=KST).date()
+            slot_times = self.slots.slots_for(day)
+            limits = Limits(min_interval=timedelta(minutes=110))
+
+            def run(at):
+                return run_once(queue, history, DryRunPublisher(), at, limits, slots=self.slots)
+
+            early = run(datetime(2026, 11, 20, 8, 50, tzinfo=KST))
+            self.assertEqual((early.status, early.detail), ("waiting", "outside_window"))
+            before = run(slot_times[0] - timedelta(minutes=1))
+            self.assertEqual(before.status, "waiting")
+            self.assertTrue(before.detail.startswith("next_slot"))
+            self.assertEqual(run(slot_times[0] + timedelta(minutes=10)).status, "published")
+            self.assertEqual(run(slot_times[0] + timedelta(minutes=40)).status, "waiting")
+            for slot in slot_times[1:]:
+                self.assertEqual(run(slot + timedelta(minutes=10)).status, "published")
+            late = run(datetime(2026, 11, 20, 22, 10, tzinfo=KST))
+            self.assertEqual((late.status, late.detail), ("waiting", "outside_window"))
+            next_day = self.slots.slots_for(day + timedelta(days=1))[0]
+            self.assertEqual(run(next_day + timedelta(minutes=5)).status, "published")
