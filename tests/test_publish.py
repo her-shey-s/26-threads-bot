@@ -307,3 +307,51 @@ class SlotTests(unittest.TestCase):
             self.assertEqual((late.status, late.detail), ("waiting", "outside_window"))
             next_day = self.slots.slots_for(day + timedelta(days=1))[0]
             self.assertEqual(run(next_day + timedelta(minutes=5)).status, "published")
+
+
+class CoupangDraftTests(unittest.TestCase):
+    def test_coupang_url_builds_body_notice_and_comment(self):
+        from threads_bot.drafts import COUPANG_BODY_NOTICE, COUPANG_DISCLOSURE, parse_draft
+        draft = parse_draft("c1", {
+            "text": "자취 3년차가 진짜 잘 쓰는 물건",
+            "scheduled_at": AT.isoformat(),
+            "reply_text": "제가 쓰는 제품은 여기 있어요",
+            "coupang_url": "https://link.coupang.com/a/abc123",
+        })
+        self.assertTrue(draft.affiliate)
+        self.assertTrue(draft.text.endswith(COUPANG_BODY_NOTICE))
+        self.assertEqual(
+            draft.reply_text,
+            f"제가 쓰는 제품은 여기 있어요\n\nhttps://link.coupang.com/a/abc123\n\n{COUPANG_DISCLOSURE}",
+        )
+
+    def test_coupang_url_without_intro_and_validation(self):
+        from threads_bot.drafts import DraftError, parse_draft
+        base = {"text": "본문", "scheduled_at": AT.isoformat()}
+        draft = parse_draft("c2", {**base, "coupang_url": "https://coupa.ng/xyz"})
+        self.assertTrue(draft.reply_text.startswith("https://coupa.ng/xyz\n\n"))
+        for bad in ("http://link.coupang.com/a/x", "https://www.coupang.com/vp/products/1",
+                    "https://link.coupang.com/", "https://evil.example/link.coupang.com", 123):
+            with self.assertRaises(DraftError):
+                parse_draft("bad", {**base, "coupang_url": bad})
+
+    def test_coupang_draft_publishes_body_then_link_comment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue"
+            queue.mkdir()
+            (queue / "c.json").write_text(json.dumps({
+                "text": "이거 사고 삶의 질 올라감", "scheduled_at": AT.isoformat(),
+                "coupang_url": "https://link.coupang.com/a/abc123",
+            }, ensure_ascii=False), encoding="utf-8")
+            history = Path(tmp) / "h.jsonl"
+            publisher = DryRunPublisher()
+            outcome = run_once(queue, history, publisher, AT)
+            self.assertEqual(outcome.status, "published")
+            (body, parent), (comment, reply_to) = publisher.calls
+            self.assertIsNone(parent)
+            self.assertNotIn("link.coupang.com", body)
+            self.assertEqual(reply_to, "dry-run-1")
+            self.assertIn("https://link.coupang.com/a/abc123", comment)
+            records = read_history(history)
+            self.assertEqual([r["status"] for r in records], ["published", "reply_published"])
+            self.assertTrue(records[0]["affiliate"])

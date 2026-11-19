@@ -1,6 +1,6 @@
 {
-  "text": "제휴 글 예시: 본문에는 내용만, 링크는 댓글로 올립니다.",
+  "text": "자취 3년 차가 돈 아깝지 않았던 물건 하나만 고르라면 이거.",
   "scheduled_at": "2026-11-20T20:00:00+09:00",
-  "affiliate": true,
-  "reply_text": "https://link.example/abc\n이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다."
+  "reply_text": "제가 쓰는 제품 링크 남겨둘게요",
+  "coupang_url": "https://link.coupang.com/a/EXAMPLE"
 }
